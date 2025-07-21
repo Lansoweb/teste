@@ -1,0 +1,263 @@
+name: Release Manager
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Git Flow Operation'
+        required: true
+        type: choice
+        options:
+          - start-release
+          - finish-release
+          - start-hotfix
+          - finish-hotfix
+      release_type:
+        description: 'Type of version bump'
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  manage-git-flow:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed for creating branches, tags, and pushing
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for accurate branch operations
+
+      - name: Configure Git User
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Get latest version tag
+        id: get_version
+        run: |
+          latest=$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+          latest=${latest#v}
+          echo "Latest version: $latest"
+
+          IFS='.' read -r major minor patch <<< "$latest"
+
+          case "${{ github.event.inputs.release_type }}" in
+            major)
+              new_version="$((major + 1)).0.0"
+              ;;
+            minor)
+              new_version="$major.$((minor + 1)).0"
+              ;;
+            patch|*)
+              new_version="$major.$minor.$((patch + 1))"
+              ;;
+          esac
+
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
+      - name: Show new version
+        run: echo "📦 New version:${{ steps.get_version.outputs.new_version }}"
+
+      # -------------------------------------------------------------------
+      # 🚀 Start Release
+      # Creates a release branch from develop
+      - name: Start Release Branch
+        if: github.event.inputs.operation == 'start-release'
+        run: |
+          RELEASE_BRANCH="release/${{ steps.get_version.outputs.new_version }}"
+          echo "Creating release branch: $RELEASE_BRANCH from develop"
+          git checkout develop
+          git pull origin develop
+          git checkout -b "$RELEASE_BRANCH"
+          git push origin "$RELEASE_BRANCH"
+          echo "Release branch '$RELEASE_BRANCH' created successfully."
+      
+      # -------------------------------------------------------------------
+      # 🚑 Start Hotfix
+      # Creates a hotfix branch from main
+      - name: Start Hotfix Branch
+        if: github.event.inputs.operation == 'start-hotfix'
+        run: |
+          HOTFIX_BRANCH="hotfix/${{ steps.get_version.outputs.new_version }}"
+          echo "Creating hotfix branch: $HOTFIX_BRANCH from main"
+          git checkout main
+          git pull origin main
+          git checkout -b "$HOTFIX_BRANCH"
+          git push origin "$HOTFIX_BRANCH"
+          echo "Hotfix branch '$HOTFIX_BRANCH' created successfully."
+
+      - name: Bump version in package.json (if exists)
+        if: github.event.inputs.operation == 'start-release' || github.event.inputs.operation == 'start-hotfix'
+        run: |
+          if [ -f package.json ]; then
+            jq --arg v "${{ steps.get_version.outputs.new_version }}" '.version = $v' package.json > tmp && mv tmp package.json
+          fi
+
+      - name: Bump version in composer.json (if exists)
+        if: github.event.inputs.operation == 'start-release' || github.event.inputs.operation == 'start-hotfix'
+        run: |
+          if [ -f composer.json ]; then
+            jq --arg v "${{ steps.get_version.outputs.new_version }}" '.version = $v' composer.json > tmp && mv tmp composer.json
+          fi
+
+      - name: Bump version in $VERSION_FILE (if exists)
+        if: github.event.inputs.operation == 'start-release' || github.event.inputs.operation == 'start-hotfix'
+        run: |
+          if [ -n "${VERSION_FILE}" ] && [ -f "${VERSION_FILE}" ]; then
+            sed -i "s/\(VERSION\s*=\s*['\"]\)[^'\"]\+\(['\"]\)/\1${{ steps.get_version.outputs.new_version }}\2/" "$VERSION_FILE"
+          fi
+
+      - name: Prepare version bump branch
+        if: github.event.inputs.operation == 'start-release' || github.event.inputs.operation == 'start-hotfix'
+        env:
+          VERSION: ${{ steps.get_version.outputs.new_version }}
+        run: |
+          BRANCH="bump/version-$VERSION"
+          git checkout -b "$BRANCH"
+
+          FILES=""
+          [ -f package.json ] && FILES="$FILES package.json"
+          [ -f composer.json ] && FILES="$FILES composer.json"
+          [ -n "${VERSION_FILE}" ] && [ -f "${VERSION_FILE}" ] && FILES="$FILES $VERSION_FILE"
+
+          echo "📝 Files found: $FILES"
+
+          CHANGED=$(git diff --name-only)
+          echo "🔍 Changed files: $CHANGED"
+
+          if [ -n "$FILES" ]; then
+            git add $FILES
+
+            if git diff --cached --quiet; then
+              echo "⚠️ No changes to commit."
+              exit 0
+            fi
+
+            git commit -m "chore: bump version to $VERSION"
+            git push origin "$BRANCH"
+            echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          else
+            echo "No files to commit"
+            exit 1
+          fi
+
+      # -------------------------------------------------------------------
+      # ✅ Finish Release
+      # Merges release to main and develop, creates tag, deletes branch
+      - name: Create release PR manually for develop
+        if: github.event.inputs.operation == 'finish-release'
+        uses: actions/github-script@v7
+        id: create_pr_develop
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          BRANCH: bump/version-${{ steps.get_version.outputs.new_version }}
+        with:
+          script: |
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `chore: bump version to ${{ steps.get_version.outputs.new_version }}`,
+              head: process.env.BRANCH,
+              base: 'develop',
+              body: 'Auto-generated PR to bump version',
+            });
+
+            // Save the PR number for auto-merge step
+            core.setOutput("pr_number", pr.number);
+
+            console.log(`🟢 Created PR #${pr.number}`);
+
+      - name: Merge PR for develop
+        if: github.event.inputs.operation == 'finish-release'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            const prNumber = Number("${{ steps.create_pr_develop.outputs.pr_number }}");
+            if (!prNumber) {
+              throw new Error("No PR number found to merge");
+            }
+
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: "squash"
+            });
+
+            console.log(`✅ Merged PR #${prNumber}`);
+
+      - name: Create release PR manually for main
+        if: github.event.inputs.operation == 'finish-release' || github.event.inputs.operation == 'finish-hotfix'
+        uses: actions/github-script@v7
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          BRANCH: bump/version-${{ steps.get_version.outputs.new_version }}
+        with:
+          script: |
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const defaultBranch = repo.default_branch;
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `chore: bump version to ${{ steps.get_version.outputs.new_version }}`,
+              head: process.env.BRANCH,
+              base: defaultBranch,
+              body: 'Auto-generated PR to bump version',
+            });
+
+            // Save the PR number for auto-merge step
+            core.setOutput("pr_number", pr.number);
+
+            console.log(`🟢 Created PR #${pr.number}`);
+
+      - name: Merge PR for develop
+        if: github.event.inputs.operation == 'finish-release' || github.event.inputs.operation == 'finish-hotfix'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            const prNumber = Number("${{ steps.create_pr.outputs.pr_number }}");
+            if (!prNumber) {
+              throw new Error("No PR number found to merge");
+            }
+
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: "squash"
+            });
+
+            console.log(`✅ Merged PR #${prNumber}`);
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.new_version }}
+          name: Release ${{ steps.get_version.outputs.new_version }}
+          generate_release_notes: true
+
+      - name: Input Validation Error
+        if: (github.event.inputs.operation == 'start-release' || github.event.inputs.operation == 'finish-release' || github.event.inputs.operation == 'start-hotfix' || github.event.inputs.operation == 'finish-hotfix') 
+        run: |
+          echo "Error: 'version' input is required for this operation."
+          exit 1
