@@ -71,6 +71,7 @@ jobs:
       # -------------------------------------------------------------------
       # Detect existing release/hotfix branch and set operation version
       # Detect existing release/hotfix branch and set operation version
+      # Detect existing release/hotfix branch and set operation version
       - name: Detect Operation Version and Branch 🎯
         id: detect_op_info
         run: |
@@ -96,15 +97,16 @@ jobs:
               BRANCH_PREFIX="hotfix/"
             fi
 
+            # --- FIX IS HERE ---
+            # Escape forward slashes in BRANCH_PREFIX for sed
+            ESCAPED_BRANCH_PREFIX=$(echo "$BRANCH_PREFIX" | sed 's/\//\\\//g')
+
+
             # Find branches matching the prefix
-            # Using -l (list) and -P (perl regex) for better grep.
-            # -w ensures whole word match for 'release/' or 'hotfix/' only at start.
             matching_branches=$(git branch -r --list "origin/$BRANCH_PREFIX*" | sed "s/.*origin\///" | tr -d '[:space:]')
             
             # Count them
-            # Use printf '%s\n' to handle empty or multi-line output correctly for wc -l
             num_matching=$(printf '%s\n' "$matching_branches" | grep -c .)
-
 
             if [ "$num_matching" -eq 0 ]; then
               echo "Error: No active '${BRANCH_PREFIX}' branch found to finish."
@@ -117,7 +119,8 @@ jobs:
             else
               TARGET_BRANCH="$matching_branches"
               # Extract version from branch name (e.g., "release/1.2.3" -> "1.2.3")
-              OP_VERSION=$(echo "$TARGET_BRANCH" | sed "s/^$BRANCH_PREFIX//")
+              # --- Use the escaped prefix in the sed command ---
+              OP_VERSION=$(echo "$TARGET_BRANCH" | sed "s/^$ESCAPED_BRANCH_PREFIX//")
               echo "Operation: FINISH. Detected Version: $OP_VERSION, Branch: $TARGET_BRANCH"
             fi
           fi
