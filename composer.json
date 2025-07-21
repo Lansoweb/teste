@@ -1,0 +1,140 @@
+{
+  "name": "zooxwifi/workflow",
+  "description": "Micro servico ZooxWifi de workflow",
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "laminas/laminas-component-installer": true,
+      "laminas/laminas-dependency-plugin": true
+    }
+  },
+  "license": "proprietary",
+  "extra": {
+    "zf": {
+      "component-whitelist": [
+        "mezzio/mezzio",
+        "mezzio/mezzio-helpers",
+        "mezzio/mezzio-router",
+        "laminas/laminas-httphandlerrunner",
+        "mezzio/mezzio-fastroute"
+      ]
+    }
+  },
+  "require": {
+    "php": "^8.2",
+    "ext-json": "*",
+    "guzzlehttp/guzzle": "^7.2",
+    "laminas/laminas-cache": "^3.11.0",
+    "psr/simple-cache": "^1.0.0",
+    "laminas/laminas-cache-storage-adapter-filesystem": "^2.3.0",
+    "laminas/laminas-cache-storage-adapter-memory": "^2.2",
+    "laminas/laminas-component-installer": "^3.3",
+    "laminas/laminas-config-aggregator": "^1.14",
+    "laminas/laminas-db": "^2.18",
+    "laminas/laminas-diactoros": "^2.5",
+    "laminas/laminas-hydrator": "^4.0",
+    "laminas/laminas-i18n": "^2.9",
+    "laminas/laminas-inputfilter": "^2.8",
+    "laminas/laminas-serializer": "^2.9",
+    "laminas/laminas-servicemanager": "^3.3",
+    "laminas/laminas-stdlib": "^3.1",
+    "laminas/laminas-uri": "^2.7",
+    "zooxsmart/los-api-auth": "^1.0",
+    "zooxsmart/los-api-client": "^2.7",
+    "mezzio/mezzio": "^3.0.1",
+    "mezzio/mezzio-fastroute": "^3.0",
+    "mezzio/mezzio-hal": "^2.8.0",
+    "mezzio/mezzio-helpers": "^5.0",
+    "mezzio/mezzio-problem-details": "^1.2",
+    "monolog/monolog": "^2.1",
+    "ramsey/uuid": "^4.1",
+    "symfony/dotenv": "^6.0"
+  },
+  "require-dev": {
+    "doctrine/coding-standard": "^11.0",
+    "laminas/laminas-development-mode": "^3.1",
+    "phpstan/phpstan": "^1.9",
+    "phpunit/phpunit": "^9.0",
+    "squizlabs/php_codesniffer": "^3.5",
+    "vimeo/psalm": "^5.4"
+  },
+  "replace": {
+    "laminas/laminas-cache-storage-adapter-apc": "*",
+    "laminas/laminas-cache-storage-adapter-apcu": "*",
+    "laminas/laminas-cache-storage-adapter-blackhole": "*",
+    "laminas/laminas-cache-storage-adapter-dba": "*",
+    "laminas/laminas-cache-storage-adapter-ext-mongodb": "*",
+    "laminas/laminas-cache-storage-adapter-memcache": "*",
+    "laminas/laminas-cache-storage-adapter-memcached": "*",
+    "laminas/laminas-cache-storage-adapter-mongodb": "*",
+    "laminas/laminas-cache-storage-adapter-wincache": "*",
+    "laminas/laminas-cache-storage-adapter-xcache": "*",
+    "laminas/laminas-cache-storage-adapter-zend-server": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Api\\Workflow\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Api\\WorkflowTest\\": "tests/unit"
+    }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "@create-dir"
+    ],
+    "post-update-cmd": [
+      "@create-dir"
+    ],
+    "dev": [
+      "sh data/dev/setup.sh"
+    ],
+    "create-dir": [
+      "@php data/create_dir.php"
+    ],
+    "development-disable": "laminas-development-mode disable",
+    "development-enable": "laminas-development-mode enable",
+    "development-status": "laminas-development-mode status",
+    "check": [
+      "@cs-check",
+      "@phpstan",
+      "@psalm"
+    ],
+    "ci": [
+      "@check"
+    ],
+    "test": [
+      "@copy-test-config",
+      "codecept run unit",
+      "@remove-test-config"
+    ],
+    "check-coverage": [
+      "@cs-check",
+      "@phpstan",
+      "@test-coverage"
+    ],
+    "clear-config-cache": "php bin/clear-config-cache.php",
+    "cs-check": "phpcs -s",
+    "cs-fix": "phpcbf",
+    "serve": "php -S 0.0.0.0:8080 -t public public/index.php",
+    "test-coverage": [
+      "@copy-test-config",
+      "codecept run unit --coverage-html",
+      "@remove-test-config"
+    ],
+    "copy-test-config": [
+      "cp -f config/autoload/testing.php config/autoload/testing.local.php",
+      "cp -f tests/env.yml.dist tests/env.yml"
+    ],
+    "remove-test-config": [
+      "rm -f config/autoload/testing.local.php",
+      "rm -f tests/env.yml"
+    ],
+    "phpstan": "phpstan analyze",
+    "psalm": "psalm --show-info=true"
+  },
+  "version": "3.1.3"
+}
