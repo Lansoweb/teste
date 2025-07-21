@@ -70,35 +70,41 @@ jobs:
 
       # -------------------------------------------------------------------
       # Detect existing release/hotfix branch and set operation version
+      # Detect existing release/hotfix branch and set operation version
       - name: Detect Operation Version and Branch 🎯
         id: detect_op_info
         run: |
           OP_VERSION=""
           TARGET_BRANCH=""
+          OPERATION_INPUT="${{ github.event.inputs.operation }}" # Get the input once
 
-          if startsWith("${{ github.event.inputs.operation }}", "start-"); then
+          if [[ "$OPERATION_INPUT" == start-* ]]; then
             # For 'start' operations, use the calculated new version
             OP_VERSION="${{ steps.calculate_new_version.outputs.new_version }}"
-            if [ "${{ github.event.inputs.operation }}" == "start-release" ]; then
+            if [ "$OPERATION_INPUT" == "start-release" ]; then
               TARGET_BRANCH="release/$OP_VERSION"
             else # start-hotfix
               TARGET_BRANCH="hotfix/$OP_VERSION"
             fi
             echo "Operation: START. Version: $OP_VERSION, Branch: $TARGET_BRANCH"
-          elif startsWith("${{ github.event.inputs.operation }}", "finish-"); then
+          elif [[ "$OPERATION_INPUT" == finish-* ]]; then
             # For 'finish' operations, detect the existing branch
             BRANCH_PREFIX=""
-            if [ "${{ github.event.inputs.operation }}" == "finish-release" ]; then
+            if [ "$OPERATION_INPUT" == "finish-release" ]; then
               BRANCH_PREFIX="release/"
             else # finish-hotfix
               BRANCH_PREFIX="hotfix/"
             fi
 
             # Find branches matching the prefix
-            matching_branches=$(git branch -r | grep "origin/$BRANCH_PREFIX" | sed "s/.*origin\///")
+            # Using -l (list) and -P (perl regex) for better grep.
+            # -w ensures whole word match for 'release/' or 'hotfix/' only at start.
+            matching_branches=$(git branch -r --list "origin/$BRANCH_PREFIX*" | sed "s/.*origin\///" | tr -d '[:space:]')
             
             # Count them
-            num_matching=$(echo "$matching_branches" | wc -l)
+            # Use printf '%s\n' to handle empty or multi-line output correctly for wc -l
+            num_matching=$(printf '%s\n' "$matching_branches" | grep -c .)
+
 
             if [ "$num_matching" -eq 0 ]; then
               echo "Error: No active '${BRANCH_PREFIX}' branch found to finish."
@@ -106,7 +112,7 @@ jobs:
             elif [ "$num_matching" -gt 1 ]; then
               echo "Error: More than one '${BRANCH_PREFIX}' branch found. Please manually resolve or specify which to finish."
               echo "Found branches:"
-              echo "$matching_branches"
+              printf '%s\n' "$matching_branches"
               exit 1
             else
               TARGET_BRANCH="$matching_branches"
@@ -125,7 +131,7 @@ jobs:
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
           echo "detected_operation_branch=$TARGET_BRANCH" >> "$GITHUB_ENV" # For use in subsequent steps
           echo "detected_operation_version=$OP_VERSION" >> "$GITHUB_ENV" # For use in subsequent steps
-
+          
       - name: Display Operation Info 📣
         run: |
           echo "📦 Operation: ${{ github.event.inputs.operation }}"
