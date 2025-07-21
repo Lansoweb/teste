@@ -220,22 +220,26 @@ jobs:
         if: github.event.inputs.operation == 'finish-release'
         id: merge_release_to_main
         env:
-          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }} # Use auto-detected branch
+          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }}
           TARGET_BASE_BRANCH: main
           GH_TOKEN: ${{ secrets.GH_PAT }}
         uses: actions/github-script@v7
         with:
+          # --- ADDED THESE INPUTS ---
           script: |
+            const BRANCH_TO_MERGE = process.env.BRANCH_TO_MERGE;
+            const TARGET_BASE_BRANCH = process.env.TARGET_BASE_BRANCH;
+
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Release ${{ env.BRANCH_TO_MERGE }} into Main`,
-              head: env.BRANCH_TO_MERGE,
-              base: env.TARGET_BASE_BRANCH,
-              body: `Merging release branch \`${env.BRANCH_TO_MERGE}\` into \`${env.TARGET_BASE_BRANCH}\`.`,
+              title: `Release ${BRANCH_TO_MERGE} into ${TARGET_BASE_BRANCH}`,
+              head: BRANCH_TO_MERGE,
+              base: TARGET_BASE_BRANCH,
+              body: `Merging release branch \`${BRANCH_TO_MERGE}\` into \`${TARGET_BASE_BRANCH}\`.`,
               draft: false
             });
-            console.log(`🟢 Created PR #${pr.number} for ${env.BRANCH_TO_MERGE} -> ${env.TARGET_BASE_BRANCH}`);
+            console.log(`🟢 Created PR #${pr.number} for ${BRANCH_TO_MERGE} -> ${TARGET_BASE_BRANCH}`);
             await github.rest.pulls.merge({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -259,22 +263,26 @@ jobs:
         if: github.event.inputs.operation == 'finish-release'
         id: merge_release_to_develop
         env:
-          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }} # Use auto-detected branch
+          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }}
           TARGET_BASE_BRANCH: develop
           GH_TOKEN: ${{ secrets.GH_PAT }}
         uses: actions/github-script@v7
         with:
+          # --- ADDED THESE INPUTS ---
           script: |
+            const BRANCH_TO_MERGE = process.env.BRANCH_TO_MERGE;
+            const TARGET_BASE_BRANCH = process.env.TARGET_BASE_BRANCH;
+
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Merge Release ${{ env.BRANCH_TO_MERGE }} into Develop`,
-              head: env.BRANCH_TO_MERGE,
-              base: env.TARGET_BASE_BRANCH,
-              body: `Merging release branch \`${env.BRANCH_TO_MERGE}\` into \`${env.TARGET_BASE_BRANCH}\` after merging to main.`,
+              title: `Merge Release ${BRANCH_TO_MERGE} into ${TARGET_BASE_BRANCH}`,
+              head: BRANCH_TO_MERGE,
+              base: TARGET_BASE_BRANCH,
+              body: `Merging release branch \`${BRANCH_TO_MERGE}\` into \`${TARGET_BASE_BRANCH}\` after merging to main.`,
               draft: false
             });
-            console.log(`🟢 Created PR #${pr.number} for ${env.BRANCH_TO_MERGE} -> ${env.TARGET_BASE_BRANCH}`);
+            console.log(`🟢 Created PR #${pr.number} for ${BRANCH_TO_MERGE} -> ${TARGET_BASE_BRANCH}`);
             await github.rest.pulls.merge({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -297,22 +305,26 @@ jobs:
         if: github.event.inputs.operation == 'finish-hotfix'
         id: merge_hotfix_to_main
         env:
-          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }} # Use auto-detected branch
+          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }}
           TARGET_BASE_BRANCH: main
           GH_TOKEN: ${{ secrets.GH_PAT }}
         uses: actions/github-script@v7
         with:
+          # --- ADDED THESE INPUTS ---
           script: |
+            const BRANCH_TO_MERGE = process.env.BRANCH_TO_MERGE;
+            const TARGET_BASE_BRANCH = process.env.TARGET_BASE_BRANCH;
+
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Hotfix ${{ env.BRANCH_TO_MERGE }} into Main`,
-              head: env.BRANCH_TO_MERGE,
-              base: env.TARGET_BASE_BRANCH,
-              body: `Merging hotfix branch \`${env.BRANCH_TO_MERGE}\` into \`${env.TARGET_BASE_BRANCH}\`.`,
+              title: `Hotfix ${BRANCH_TO_MERGE} into ${TARGET_BASE_BRANCH}`,
+              head: BRANCH_TO_MERGE,
+              base: TARGET_BASE_BRANCH,
+              body: `Merging hotfix branch \`${BRANCH_TO_MERGE}\` into \`${TARGET_BASE_BRANCH}\`.`,
               draft: false
             });
-            console.log(`🟢 Created PR #${pr.number} for ${env.BRANCH_TO_MERGE} -> ${env.TARGET_BASE_BRANCH}`);
+            console.log(`🟢 Created PR #${pr.number} for ${BRANCH_TO_MERGE} -> ${TARGET_BASE_BRANCH}`);
             await github.rest.pulls.merge({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -336,22 +348,26 @@ jobs:
         if: github.event.inputs.operation == 'finish-hotfix'
         id: merge_hotfix_to_develop
         env:
-          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }} # Use auto-detected branch
+          BRANCH_TO_MERGE: ${{ steps.detect_op_info.outputs.target_branch }}
           TARGET_BASE_BRANCH: develop
           GH_TOKEN: ${{ secrets.GH_PAT }}
         uses: actions/github-script@v7
         with:
+          # --- ADDED THESE INPUTS ---
           script: |
+            const BRANCH_TO_MERGE = process.env.BRANCH_TO_MERGE;
+            const TARGET_BASE_BRANCH = process.env.TARGET_BASE_BRANCH;
+
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Merge Hotfix ${{ env.BRANCH_TO_MERGE }} into Develop`,
-              head: env.BRANCH_TO_MERGE,
-              base: env.TARGET_BASE_BRANCH,
-              body: `Merging hotfix branch \`${env.BRANCH_TO_MERGE}\` into \`${env.TARGET_BASE_BRANCH}\` after merging to main.`,
+              title: `Merge Hotfix ${BRANCH_TO_MERGE} into ${TARGET_BASE_BRANCH}`,
+              head: BRANCH_TO_MERGE,
+              base: TARGET_BASE_BRANCH,
+              body: `Merging hotfix branch \`${BRANCH_TO_MERGE}\` into \`${TARGET_BASE_BRANCH}\` after merging to main.`,
               draft: false
             });
-            console.log(`🟢 Created PR #${pr.number} for ${env.BRANCH_TO_MERGE} -> ${env.TARGET_BASE_BRANCH}`);
+            console.log(`🟢 Created PR #${pr.number} for ${BRANCH_TO_MERGE} -> ${TARGET_BASE_BRANCH}`);
             await github.rest.pulls.merge({
               owner: context.repo.owner,
               repo: context.repo.repo,
